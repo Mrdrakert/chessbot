@@ -1,0 +1,9 @@
+﻿  chessbot.cpp
+D:\Programowanie\Moje\chessbot\chessbot.cpp(735,27): warning C4805: "==": niebezpieczne połączenie typu "int" oraz typu "bool" w operacji
+D:\Programowanie\Moje\chessbot\chessbot.cpp(1070,21): warning C4244: "*=": konwersja z "float" do "int", możliwa utrata danych
+  Trwa generowanie kodu
+  2 of 562 functions ( 0.4%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    0 functions had inline decision re-evaluated but remain unchanged
+  Zakończono generowanie kodu
+  chessbot.vcxproj -> D:\Programowanie\Moje\chessbot\x64\Release\chessbot.exe

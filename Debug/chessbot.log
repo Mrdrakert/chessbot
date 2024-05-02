@@ -1,0 +1,5 @@
+﻿  chessbot.cpp
+D:\Programowanie\Moje\chessbot\chessbot.cpp(713,27): warning C4805: "==": niebezpieczne połączenie typu "int" oraz typu "bool" w operacji
+D:\Programowanie\Moje\chessbot\chessbot.cpp(873,23): warning C4018: "<": niezgodność typu ze znakiem/bez znaku
+D:\Programowanie\Moje\chessbot\chessbot.cpp(1004,21): warning C4244: "*=": konwersja z "float" do "int", możliwa utrata danych
+  chessbot.vcxproj -> D:\Programowanie\Moje\chessbot\Debug\chessbot.exe

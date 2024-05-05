@@ -1,4 +1,15 @@
 ﻿  chessbot.cpp
-D:\Programowanie\Moje\chessbot\chessbot.cpp(713,27): warning C4805: "==": niebezpieczne połączenie typu "int" oraz typu "bool" w operacji
-D:\Programowanie\Moje\chessbot\chessbot.cpp(1048,21): warning C4244: "*=": konwersja z "float" do "int", możliwa utrata danych
+D:\Programowanie\Moje\chessbot\chessbot.cpp(894,27): warning C4805: "==": niebezpieczne połączenie typu "int" oraz typu "bool" w operacji
+D:\Programowanie\Moje\chessbot\chessbot.cpp(1170,21): warning C4244: "*=": konwersja z "float" do "int", możliwa utrata danych
+D:\Programowanie\Moje\chessbot\chessbot.cpp(1252,34): warning C4267: "inicjowanie": konwersja z "size_t" do "int", możliwa utrata danych
+D:\Programowanie\Moje\chessbot\chessbot.cpp(194,1): warning C4267: "argument": konwersja z "size_t" do "_Ty", możliwa utrata danych
+          with
+          [
+              _Ty=int
+          ]
+D:\Programowanie\Moje\chessbot\chessbot.cpp(1186): message : zobacz odwołanie do kompilowanego tworzenia wystąpienia „T getRandomValue<Move>(const std::vector<Move,std::allocator<Move>> &)” funkcji szablon
+          with
+          [
+              T=Move
+          ]
   chessbot.vcxproj -> D:\Programowanie\Moje\chessbot\x64\Debug\chessbot.exe

@@ -6,6 +6,9 @@
 #include <algorithm>
 #include <unordered_map>
 #include <iomanip>
+#include <nlohmann/json.hpp>
+#include <fstream>
+#include <random>
 
 
 #define MATE_VALUE 16000
@@ -14,8 +17,98 @@
 int REGULAR_DEPTH;
 int MAX_DEPTH;
 
+int pawn_list[] = {
+    0,  0,  0,  0,  0,  0,  0,  0,
+    50, 50, 50, 50, 50, 50, 50, 50,
+    10, 10, 20, 30, 30, 20, 10, 10,
+    5,  5, 10, 25, 25, 10,  5,  5,
+    0,  0,  0, 20, 20,  0,  0,  0,
+    5, -5,-10,  0,  0,-10, -5,  5,
+    5, 10, 10,-20,-20, 10, 10,  5,
+    0,  0,  0,  0,  0,  0,  0,  0
+};
+
+int knight_list[] = {
+    -50,-40,-30,-30,-30,-30,-40,-50,
+    -40,-20,  0,  0,  0,  0,-20,-40,
+    -30,  0, 10, 15, 15, 10,  0,-30,
+    -30,  5, 15, 20, 20, 15,  5,-30,
+    -30,  0, 15, 20, 20, 15,  0,-30,
+    -30,  5, 10, 15, 15, 10,  5,-30,
+    -40,-20,  0,  5,  5,  0,-20,-40,
+    -50,-40,-30,-30,-30,-30,-40,-50,
+};
+
+int bishop_list[] = {
+    -20,-10,-10,-10,-10,-10,-10,-20,
+    -10,  0,  0,  0,  0,  0,  0,-10,
+    -10,  0,  5, 10, 10,  5,  0,-10,
+    -10,  5,  5, 10, 10,  5,  5,-10,
+    -10,  0, 10, 10, 10, 10,  0,-10,
+    -10, 10, 10, 10, 10, 10, 10,-10,
+    -10,  5,  0,  0,  0,  0,  5,-10,
+    -20,-10,-10,-10,-10,-10,-10,-20,
+};
+
+int rook_list[] = {
+      0,  0,  0,  0,  0,  0,  0,  0,
+      5, 10, 10, 10, 10, 10, 10,  5,
+     -5,  0,  0,  0,  0,  0,  0, -5,
+     -5,  0,  0,  0,  0,  0,  0, -5,
+     -5,  0,  0,  0,  0,  0,  0, -5,
+     -5,  0,  0,  0,  0,  0,  0, -5,
+     -5,  0,  0,  0,  0,  0,  0, -5,
+      0,  0,  0,  5,  5,  0,  0,  0
+};
+
+int queen_opening_list[] = {
+    -30,-40,-40,-50,-50,-40,-40,-30,
+    -30,-40,-40,-50,-50,-40,-40,-30,
+    -30,-40,-40,-50,-50,-40,-40,-30,
+    -30,-40,-40,-50,-50,-40,-40,-30,
+    -20,-30,-30,-40,-40,-30,-30,-20,
+    -10,-20,-20,-20,-20,-20,-20,-10,
+     20, 20,  0,  0,  0,  0, 20, 20,
+     20, 30, 10,  0,  0, 10, 30, 20
+};
+
+int queen_list[] = {
+    -20,-10,-10, -5, -5,-10,-10,-20,
+    -10,  0,  0,  0,  0,  0,  0,-10,
+    -10,  0,  5,  5,  5,  5,  0,-10,
+     -5,  0,  5,  5,  5,  5,  0, -5,
+      0,  0,  5,  5,  5,  5,  0, -5,
+    -10,  5,  5,  5,  5,  5,  0,-10,
+    -10,  0,  5,  0,  0,  0,  0,-10,
+    -20,-10,-10, -5, -5,-10,-10,-20
+};
+
+int king_middle_list[] = {
+    -30,-40,-40,-50,-50,-40,-40,-30,
+    -30,-40,-40,-50,-50,-40,-40,-30,
+    -30,-40,-40,-50,-50,-40,-40,-30,
+    -30,-40,-40,-50,-50,-40,-40,-30,
+    -20,-30,-30,-40,-40,-30,-30,-20,
+    -10,-20,-20,-20,-20,-20,-20,-10,
+     20, 20,  0,  0,  0,  0, 20, 20,
+     20, 30, 10,  0,  0, 10, 30, 20
+};
+
+int king_end_list[] = {
+    -50,-40,-30,-20,-20,-30,-40,-50,
+    -30,-20,-10,  0,  0,-10,-20,-30,
+    -30,-10, 20, 30, 30, 20,-10,-30,
+    -30,-10, 30, 40, 40, 30,-10,-30,
+    -30,-10, 30, 40, 40, 30,-10,-30,
+    -30,-10, 20, 30, 30, 20,-10,-30,
+    -30,-30,  0,  0,  0,  0,-30,-30,
+    -50,-30,-30,-30,-30,-30,-30,-50
+};
+
 std::hash<std::string> hasher;
 int trees_searched = 0;
+
+std::vector<std::string> openings_raw;
 
 struct ChessBoard {
     char pieces[64];
@@ -28,6 +121,7 @@ struct ChessBoard {
     bool whiteCastled;
     int enPassantSquare;
     int previousCapture;
+    int turnNumber;
 };
 
 struct Move {
@@ -36,7 +130,18 @@ struct Move {
     int capture;
     int contest;
     int piece_class;
+    int score;
 };
+
+Move killer_moves[20][2];
+
+void updateKillerMove(int depth, Move move) {
+    if (killer_moves[depth][0].sq1 != move.sq1 || killer_moves[depth][0].sq2 != move.sq2)
+    {
+        killer_moves[depth][1] = killer_moves[depth][0];
+        killer_moves[depth][0] = move;
+    }
+}
 
 
 struct MoveEval {
@@ -67,6 +172,44 @@ std::string getSquareNotation(int square)
     return notation;
 }
 
+
+int getSquareIndex(const std::string& squareNotation) {
+    if (squareNotation.length() != 2) {
+        return -1; // Invalid square notation
+    }
+
+    char file = std::toupper(squareNotation[0]);
+    char rank = squareNotation[1];
+
+    if (file < 'A' || file > 'H' || rank < '1' || rank > '8') {
+        return -1; // Invalid square notation
+    }
+
+    int fileIndex = file - 'A';
+    int rankIndex = '8' - rank;
+
+    return rankIndex * 8 + fileIndex;
+}
+
+
+template<typename T>
+T getRandomValue(const std::vector<T>& vec) {
+    if (vec.empty()) {
+        throw std::out_of_range("Vector is empty");
+    }
+
+    // Seed the random number generator
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    // Generate a random index within the range of the vector size
+    std::uniform_int_distribution<> dis(0, vec.size() - 1);
+    int randomIndex = dis(gen);
+
+    // Return the randomly selected value
+    return vec[randomIndex];
+}
+
 std::string sha256(const std::string& str) {
     // SHA-256 produces a 256-bit (32 bytes) hash
     constexpr size_t digest_size = 64;
@@ -81,11 +224,27 @@ std::string sha256(const std::string& str) {
     return ss.str().substr(0, 64); // Take first 64 characters
 }
 
-//std::unordered_map<std::string, TranspositionEntry> transpositionTable;
-std::unordered_map<size_t, TranspositionEntry> transpositionTable;
+std::unordered_map<std::string, TranspositionEntry> transpositionTable;
+//std::unordered_map<size_t, TranspositionEntry> transpositionTable;
+
+//std::unordered_map<size_t, std::vector<Move>> opening_table;
+std::unordered_map<std::string, std::vector<Move>> opening_table;
+
+std::unordered_map<std::string, int> history_table;
+
+std::string moveToString(Move move)
+{
+    std::string string = std::to_string(move.sq1) + std::to_string(move.sq2);
+    return string;
+}
+
+void insertToHistory(Move move, char color, int depth)
+{
+    history_table[std::to_string(color) + moveToString(move)] += depth*depth;
+}
 
 //std::string generateHashKey(const ChessBoard* board) 
-size_t generateHashKey(const ChessBoard* board) 
+std::string generateHashKey(const ChessBoard* board) 
 {
     std::string key = "";
 
@@ -107,7 +266,23 @@ size_t generateHashKey(const ChessBoard* board)
     key += std::to_string(board->enPassantSquare);
 
     //return sha256(key);
-    return hasher(key);
+    return key;
+}
+
+std::string generateHashKeySimple(const ChessBoard* board)
+{
+    std::string key = "";
+
+    // Concatenate piece positions
+    for (int i = 0; i < 64; ++i) {
+        key += board->pieces[i];
+    }
+
+    // Concatenate turn
+    key += board->turn;
+
+    //return sha256(key);
+    return key;
 }
 
 
@@ -183,6 +358,10 @@ ChessBoard fenToChessBoard(std::string fen)
     else {
         board.enPassantSquare = -1; // No en passant square
     }
+    iss >> token;
+    iss >> token;
+    board.turnNumber = stoi(token);
+    //std::cout << board.turnNumber;
 
     board.previousCapture = -1;
 
@@ -544,20 +723,17 @@ bool isInCheck(ChessBoard* board, char color, int special_square = -1)
     int queen_offsets[] = { -9, -7, 7, 9, -8, -1, 1, 8 };
     int new_square, row, col;
 
-    int pawn_place;
-    pawn_place = king_square + pawn_offset1;
-    if (isValidSquare(pawn_place))
-    {
-        if (isPieceThereColor(board, pawn_place, swapColor(color)) && toupper(board->pieces[pawn_place]) == 'P')
-            return true;
-    }
+    int pawn_place[2];
+    pawn_place[0] = king_square + pawn_offset1;
+    pawn_place[1] = king_square + pawn_offset1;
 
-
-    pawn_place = king_square + pawn_offset2;
-    if (isValidSquare(pawn_place))
+    for (int i = 0; i < 2; i++)
     {
-        if (isPieceThereColor(board, pawn_place, swapColor(color)) && toupper(board->pieces[pawn_place]) == 'P')
-            return true;
+        if (isValidSquare(pawn_place[i]) && getRow(pawn_place[i]) == getRow(king_square) + dir)
+        {
+            if (isPieceThereColor(board, pawn_place[i], swapColor(color)) && toupper(board->pieces[pawn_place[i]]) == 'P')
+                return true;
+        }
     }
 
     for (int offset : knight_offsets)
@@ -878,7 +1054,7 @@ ChessBoard movePiece(ChessBoard* board, int square1, int square2)
 }
 
 
-std::vector<Move> getLegalMovesFor(ChessBoard* board)
+std::vector<Move> getLegalMovesFor(ChessBoard* board, int full_depth, Move tt_move)
 {
     std::vector<Move> moves;
     std::vector<Move> legal_moves;
@@ -897,21 +1073,39 @@ std::vector<Move> getLegalMovesFor(ChessBoard* board)
         ChessBoard new_board = movePiece(board, moves[i].sq1, moves[i].sq2);
         if (!isInCheck(&new_board, board->turn))
         {
-            //std::cout << std::endl;
-            //printBoard(&new_board);
-
             if (board->previousCapture == moves[i].sq2)
                 moves[i].contest = 1;
+            moves[i].score = history_table[std::to_string(board->turn) + moveToString(moves[i])];
             legal_moves.push_back(moves[i]);
         }
     }
 
-    std::sort(legal_moves.begin(), legal_moves.end(), [](const Move& a, const Move& b) {
-        if (a.contest != b.contest)
+    std::sort(legal_moves.begin(), legal_moves.end(), [full_depth, tt_move](const Move& a, const Move& b) {
+
+        if (tt_move.sq1 != -1 && tt_move.sq2 != -1)
+        {
+            if (tt_move.sq1 == a.sq1 && tt_move.sq2 == a.sq2)
+                return true;
+            if (tt_move.sq1 == b.sq1 && tt_move.sq2 == b.sq2)
+                return false;
+        }
+        else if (a.contest != b.contest)
             return a.contest > b.contest;
-        else if (a.piece_class != b.piece_class)
+        else if (a.capture != b.capture)
+            return a.capture > b.capture;
+        else {
+            for (int i = 0; i < 2; ++i) {
+                if (killer_moves[full_depth][i].sq1 == a.sq1 && killer_moves[full_depth][i].sq2 == a.sq2)
+                    return true;
+                if (killer_moves[full_depth][i].sq1 == b.sq1 && killer_moves[full_depth][i].sq2 == b.sq2)
+                    return false;
+            }
+        }
+
+        if (a.piece_class != b.piece_class)
             return a.piece_class > b.piece_class;
-        return a.capture > b.capture;
+        else
+            return a.score > b.score;
     });
 
     return legal_moves;
@@ -923,7 +1117,19 @@ int evalBoard(ChessBoard* board)
     int white_score = 0;
     int black_score = 0;
 
+    int white_pieces = 0;
+    int black_pieces = 0;
+    int white_pawns = 0;
+    int black_pawns = 0;
+
     int king_safety = 100;
+
+    int white_king_i = -1;
+    int black_king_i = -1;
+
+    bool black_queen = false;
+    bool white_queen = false;
+
 
     if (board->blackCanCastleKingSide)
         black_score += 30;
@@ -939,83 +1145,6 @@ int evalBoard(ChessBoard* board)
     if (board->whiteCastled)
         white_score += 90;
 
-    int pawn_list[] = { 
-         0,  0,  0,  0,  0,  0,  0,  0,
-        50, 50, 50, 50, 50, 50, 50, 50,
-        10, 10, 20, 30, 30, 20, 10, 10,
-         5,  5, 10, 25, 25, 10,  5,  5,
-         0,  0,  0, 20, 20,  0,  0,  0,
-         5, -5,-10,  0,  0,-10, -5,  5,
-         5, 10, 10,-20,-20, 10, 10,  5,
-         0,  0,  0,  0,  0,  0,  0,  0
-    };
-
-    int knight_list[] = {
-        -50,-40,-30,-30,-30,-30,-40,-50,
-        -40,-20,  0,  0,  0,  0,-20,-40,
-        -30,  0, 10, 15, 15, 10,  0,-30,
-        -30,  5, 15, 20, 20, 15,  5,-30,
-        -30,  0, 15, 20, 20, 15,  0,-30,
-        -30,  5, 10, 15, 15, 10,  5,-30,
-        -40,-20,  0,  5,  5,  0,-20,-40,
-        -50,-40,-30,-30,-30,-30,-40,-50,
-    };
-
-    int bishop_list[] = {
-        -20,-10,-10,-10,-10,-10,-10,-20,
-        -10,  0,  0,  0,  0,  0,  0,-10,
-        -10,  0,  5, 10, 10,  5,  0,-10,
-        -10,  5,  5, 10, 10,  5,  5,-10,
-        -10,  0, 10, 10, 10, 10,  0,-10,
-        -10, 10, 10, 10, 10, 10, 10,-10,
-        -10,  5,  0,  0,  0,  0,  5,-10,
-        -20,-10,-10,-10,-10,-10,-10,-20,
-    };
-
-    int rook_list[] = {
-          0,  0,  0,  0,  0,  0,  0,  0,
-          5, 10, 10, 10, 10, 10, 10,  5,
-         -5,  0,  0,  0,  0,  0,  0, -5,
-         -5,  0,  0,  0,  0,  0,  0, -5,
-         -5,  0,  0,  0,  0,  0,  0, -5,
-         -5,  0,  0,  0,  0,  0,  0, -5,
-         -5,  0,  0,  0,  0,  0,  0, -5,
-          0,  0,  0,  5,  5,  0,  0,  0
-    };
-
-    int queen_list[] = {
-        -20,-10,-10, -5, -5,-10,-10,-20,
-        -10,  0,  0,  0,  0,  0,  0,-10,
-        -10,  0,  5,  5,  5,  5,  0,-10,
-         -5,  0,  5,  5,  5,  5,  0, -5,
-          0,  0,  5,  5,  5,  5,  0, -5,
-        -10,  5,  5,  5,  5,  5,  0,-10,
-        -10,  0,  5,  0,  0,  0,  0,-10,
-        -20,-10,-10, -5, -5,-10,-10,-20
-    };
-
-    int king_middle_list[] = {
-        -30,-40,-40,-50,-50,-40,-40,-30,
-        -30,-40,-40,-50,-50,-40,-40,-30,
-        -30,-40,-40,-50,-50,-40,-40,-30,
-        -30,-40,-40,-50,-50,-40,-40,-30,
-        -20,-30,-30,-40,-40,-30,-30,-20,
-        -10,-20,-20,-20,-20,-20,-20,-10,
-         20, 20,  0,  0,  0,  0, 20, 20,
-         20, 30, 10,  0,  0, 10, 30, 20
-    };
-
-    int king_end_list[] = {
-        -50,-40,-30,-20,-20,-30,-40,-50,
-        -30,-20,-10,  0,  0,-10,-20,-30,
-        -30,-10, 20, 30, 30, 20,-10,-30,
-        -30,-10, 30, 40, 40, 30,-10,-30,
-        -30,-10, 30, 40, 40, 30,-10,-30,
-        -30,-10, 20, 30, 30, 20,-10,-30,
-        -30,-30,  0,  0,  0,  0,-30,-30,
-        -50,-30,-30,-30,-30,-30,-30,-50
-    };
-
 
 
     for (int i = 0; i < 64; i++)
@@ -1024,48 +1153,73 @@ int evalBoard(ChessBoard* board)
         {
         case 'P':
             white_score += 100 + pawn_list[i];
+            white_pawns += 1;
             break;
         case 'p':
             black_score += 100 + pawn_list[63-i];
+            black_pawns += 1;
             break;
         case 'N':
             white_score += 320 + knight_list[i];
+            white_pieces += 1;
             break;
         case 'n':
             black_score += 320 + knight_list[63-i];
+            black_pieces += 1;
             break;
         case 'B':
             white_score += 340 + bishop_list[i];
+            white_pieces += 1;
             break;
         case 'b':
             black_score += 340 + bishop_list[63-i];
+            black_pieces += 1;
             break;
         case 'R':
             white_score += 500 + rook_list[i];
+            white_pieces += 1;
             break;
         case 'r':
             black_score += 500 + rook_list[63-i];
+            black_pieces += 1;
             break;
         case 'Q':
             white_score += 900 + queen_list[i];
+            white_queen = true;
             break;
         case 'q':
             black_score += 900 + queen_list[63-i];
+            black_queen = true;
             break;
         case 'K':
-            white_score += king_safety + king_middle_list[i];
+            white_score += king_safety;
+            white_pieces += 1;
             break;
         case 'k':
-            black_score += king_safety + king_middle_list[63-i];
+            black_score += king_safety;
+            black_pieces += 1;
             break;
         }
     }
+
+    if (black_king_i != -1 && white_king_i != -1)
+    {
+        if ((!white_queen && !black_queen) || (white_pieces <= 3 && black_pieces <= 3)) {
+            black_score += king_end_list[63 - black_king_i];
+            white_score += king_end_list[black_king_i];
+        }
+        else {
+            black_score += king_middle_list[63 - black_king_i];
+            white_score += king_middle_list[black_king_i];
+        }
+    }
+    
 
     int diff = white_score - black_score;
 
     int result = white_score - black_score;
 
-    if (abs(diff) > 200)
+    if (abs(diff) > 130)
     {
         diff *= 0.2f;
         result += diff;
@@ -1075,30 +1229,55 @@ int evalBoard(ChessBoard* board)
 }
 
 
-MoveEval negamax(ChessBoard* board, int alpha, int beta, int depth, int big_depth)
+ChessBoard makeNullMove(ChessBoard* board)
+{
+    ChessBoard new_board;
+    for (int i = 0; i < 64; i++)
+    {
+        new_board.pieces[i] = board->pieces[i];
+    }
+    new_board.turn = swapColor(board->turn);
+    return new_board;
+}
+
+
+MoveEval negamax(ChessBoard* board, int alpha, int beta, int depth, int big_depth, int reduced_by = 1)
 {
     int dir = (board->turn == 'w') ? 1 : -1;
     //std::string hashKey = generateHashKey(board);
-    size_t hashKey = generateHashKey(board);
+    std::string hashKey = generateHashKey(board);
+    std::string simple_hash = generateHashKeySimple(board);
 
-    if (transpositionTable.find(hashKey) != transpositionTable.end() &&
-        transpositionTable[hashKey].depth >= depth) {
-        // Entry found in the transposition table
-        TranspositionEntry entry = transpositionTable[hashKey];
-        if (entry.depth >= depth) {
-            // Use the stored value if it's at least as deep as the current depth
-            if (entry.depth == depth)
-            {
-                return createMoveEval(entry.move, entry.score);
-            }
-            if (entry.depth < depth)
-            {
-                return createMoveEval(entry.move, entry.score * dir);
-            }
-        }
+    if (opening_table.find(simple_hash) != opening_table.end()) {
+        return createMoveEval(getRandomValue(opening_table[simple_hash]), 0);
     }
 
-    std::vector<Move> moves = getLegalMovesFor(board);
+    Move tt_move = createMove(-1, -1);
+
+    if (transpositionTable.find(hashKey) != transpositionTable.end()) {
+
+        if (transpositionTable[hashKey].depth >= depth) {
+            // Entry found in the transposition table
+            TranspositionEntry entry = transpositionTable[hashKey];
+            if (entry.depth >= depth) {
+                // Use the stored value if it's at least as deep as the current depth
+                if (entry.depth == depth)
+                {
+                    return createMoveEval(entry.move, entry.score);
+                }
+                if (entry.depth < depth)
+                {
+                    return createMoveEval(entry.move, entry.score * dir);
+                }
+            }
+        }
+        else {
+            tt_move = transpositionTable[hashKey].move;
+        }
+        
+    }
+
+    std::vector<Move> moves = getLegalMovesFor(board, big_depth, tt_move);
 
     trees_searched += 1;
 
@@ -1111,8 +1290,8 @@ MoveEval negamax(ChessBoard* board, int alpha, int beta, int depth, int big_dept
 
     if (me_in_check)
     {
-        //increased = true;
-        //depth += 1;
+        increased = true;
+        depth += reduced_by;
     }
 
     if (moves.size() == 0)
@@ -1131,14 +1310,39 @@ MoveEval negamax(ChessBoard* board, int alpha, int beta, int depth, int big_dept
     }
 
     int best_score = -MAX_VALUE;
+    int move_count = moves.size();
+    int move_iterator = 0;
+
+
+    //
+    if (depth > 1 && !isInCheck(board, swapColor(board->turn)) && depth > 2) {
+        ChessBoard new_board_n = makeNullMove(board);
+        MoveEval null_eval = negamax(&new_board_n, -beta, -beta + 1, depth - 3, big_depth - 3);
+        null_eval.eval = -null_eval.eval; // negate the score
+        if (null_eval.eval >= beta) {
+            return createMoveEval(createMove(-1, -1), null_eval.eval);
+        }
+    }
+
+
     for (const Move& move : moves)
     {
+        move_iterator += 1;
         ChessBoard new_board = movePiece(board, move.sq1, move.sq2);
         MoveEval eval;
-        if (move.capture > 0 && moves.size() < 9)
+        if (!increased && moves.size() < 5)
             eval = negamax(&new_board, -beta, -alpha, depth, big_depth - 1);
-        else
-            eval = negamax(&new_board, -beta, -alpha, depth - 1, big_depth - 1);
+        else {
+            if (move_iterator > 2 && move.capture == 0 && depth > 2 && !me_in_check)
+            {
+                eval = negamax(&new_board, -beta, -alpha, depth - 2, big_depth - 1, 2);
+                if (alpha < -eval.eval)
+                    eval = negamax(&new_board, -beta, -alpha, depth - 1, big_depth - 1);
+            }
+            else
+                eval = negamax(&new_board, -beta, -alpha, depth - 1, big_depth - 1);
+        }
+            
         
         int score = -eval.eval;
         if (score > best_score)
@@ -1148,7 +1352,14 @@ MoveEval negamax(ChessBoard* board, int alpha, int beta, int depth, int big_dept
         }
         alpha = std::max(alpha, best_score);
         if (beta <= alpha)
+        {
+            if (move.capture == 0)
+            {
+                updateKillerMove(depth, move);
+                insertToHistory(move, board->turn, big_depth);
+            }
             break; // Beta cutoff
+        }
     }
 
     // Store the current position in the transposition table
@@ -1159,48 +1370,77 @@ MoveEval negamax(ChessBoard* board, int alpha, int beta, int depth, int big_dept
 
 
 
+void parseOpenings()
+{
+    std::ifstream file("fen_results.txt");
+    if (!file.is_open()) {
+        std::cerr << "Error opening file!" << std::endl;
+        return;
+    }
+
+    std::string line;
+    while (std::getline(file, line)) {
+        std::istringstream iss(line);
+        std::string firstPart, secondPart, secondPartFirstHalf, secondPartSecondHalf;
+
+        // Read everything until the last space
+        std::size_t lastSpacePos = line.find_last_of(' ');
+        if (lastSpacePos != std::string::npos) {
+            firstPart = line.substr(0, lastSpacePos);
+        }
+
+        // Last 4 characters
+        secondPart = line.substr(lastSpacePos + 1);
+
+        if (secondPart.length() >= 2) {
+            secondPartFirstHalf = secondPart.substr(0, secondPart.length() / 2);
+            secondPartSecondHalf = secondPart.substr(secondPart.length() / 2);
+        }
+
+        ChessBoard board = fenToChessBoard(firstPart);
+        std::string simple_hash = generateHashKeySimple(&board);
+
+        int first, second;
+        first = getSquareIndex(secondPartFirstHalf);
+        second = getSquareIndex(secondPartSecondHalf);
+
+        Move created = createMove(first, second);
+        opening_table[simple_hash].push_back(created);
+    }
+
+    file.close();
+}
+
+
+
 int main(int argc, char* argv[])
 {
-    //if (argc != 2) 
-    //{
-        //std::cout << "No parameter";
-        //return 1;
-    //}
-    //std::string input_string = argv[1];
-
-    //std::string input_string = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-    //std::string input_string = "8/8/8/8/8/3q4/8/3K4 w KQkq - 17 9";
-    //std::string input_string = "r3k2r/ppp2ppp/2B2n2/2qpp1BQ/2bPP2N/7b/PPP2PPP/R3K2R b - - 0 34";
-    //std::string input_string = "R6R/3Q4/1Q4Q1/4Q3/2Q4Q/Q4Q2/pp1Q4/kBNN1KB1 w - - 0 1";
-    ////std::string input_string = "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4";
-    std::string input_string = "3k4/5R2/6P1/5R2/1Q6/8/8/6K1 w - - 5 49";
-
-    //ChessBoard board;
-    //board = fenToChessBoard(input_string);
-    //printBoard(&board);
-
-    //MoveEval mEval = negamax(&board, -MAX_VALUE, MAX_VALUE, 6);
-
-    //std::cout << "move: " << getSquareNotation(mEval.move.sq1) << "->" << getSquareNotation(mEval.move.sq2) << " eval: " << mEval.eval << std::endl;
-    
-    //std::cout << "trees: " << trees_searched << std::endl;
-
-    //std::vector<Move> moves = getLegalMovesFor(&board);
-    //std::cout << moves.size() << " moves: " << std::endl;
-    //for (int i = 0; i < moves.size(); i += 1)
-    //{
-        //std::cout << moves[i].sq1 << "->" << moves[i].sq2 << std::endl;
-    //}
-
-
+    std::string input_string;
 
     ChessBoard board;
     MoveEval mEval;
 
-    REGULAR_DEPTH = 6;
-    MAX_DEPTH = 8;
-    std::string temp;
+    REGULAR_DEPTH = 8;
+    MAX_DEPTH = 12;
+    
+    parseOpenings();
 
+
+    //input_string = "rnbqkb1r/pp2pppp/2p5/6B1/2pPN3/8/PP3PPP/R2QKBNR b KQkq - 0 6";
+    //board = fenToChessBoard(input_string);
+
+    //int score = evalBoard(&board);
+
+    //std::cout << score << std::endl;
+
+    //std::vector<Move> moves = getLegalMovesFor(&board, MAX_DEPTH, createMove(-1, -1));
+
+    //for (auto move : moves) {
+        //std::cout << move.sq1 << " " << move.sq2 << std::endl;
+    //}
+
+
+    //Input depth on runtime
     //std::cout << "Regular depth: ";
     //std::getline(std::cin, temp);
     //REGULAR_DEPTH = stoi(temp);
@@ -1211,18 +1451,29 @@ int main(int argc, char* argv[])
 
     while (true) {
         transpositionTable.clear();
+        history_table.clear();
+        for (int i = 0; i < 20; ++i) {
+            for (int j = 0; j < 2; ++j) {
+                killer_moves[i][j] = createMove(-1, -1);
+            }
+        }
         trees_searched = 0;
+
+
         std::cout << "Enter FEN: ";
         std::getline(std::cin, input_string);
-
         
         board = fenToChessBoard(input_string);
+
+        // Iterative deepening
+        int starting_reduction = REGULAR_DEPTH - 2;
+        for (int i = starting_reduction; i > 0; i--)
+            negamax(&board, -MAX_VALUE, MAX_VALUE, REGULAR_DEPTH - i, MAX_DEPTH - i);
 
         mEval = negamax(&board, -MAX_VALUE, MAX_VALUE, REGULAR_DEPTH, MAX_DEPTH);
 
         std::cout << "move: " << getSquareNotation(mEval.move.sq1) << "->" << getSquareNotation(mEval.move.sq2) << " eval: " << mEval.eval << std::endl;
-        //std::cout << "move: " << getSquareNotation(mEval.move.sq1) << "->" << getSquareNotation(mEval.move.sq2) << std::endl;
-        std::cout << "trees: " << trees_searched << std::endl;
+        std::cout << "nodes searched: " << trees_searched << std::endl;
     }
 
     return 0;
